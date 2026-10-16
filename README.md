@@ -33,27 +33,27 @@
 
 图片以修复后的实机界面为参考制作，**取景画面及相册缩略图已替换为示例风景**。边框为展示示意，不是手机实物照片；AI 编辑图用于展示布局与风格，不作为像素级测试证据，也不表示实际相机成像质量。
 
+<!-- 上面一行三张图：35% + 65% -->
 <table>
   <tr>
-    <td colspan="2" align="center">
-      <img src="docs/images/main-preview.png" width="320" alt="主屏徕卡界面与同排背屏预览按钮"><br>
-      主屏与背屏预览入口
+    <td width="35%" align="center">
+      <img src="docs/images/main-preview.png" width="320" alt="主屏徕卡界面与同排背屏预览按钮"><br>主屏与背屏预览入口
     </td>
-    <td colspan="4" align="center">
-      <img src="docs/images/rear-preview.png" width="640" alt="背屏徕卡取景与预览外模糊"><br>
-      背屏取景与外围实时模糊<br><br>
-      <img src="docs/images/rear-menu.png" width="640" alt="背屏徕卡纯色下拉菜单"><br>
-      背屏下拉菜单
+    <td width="65%" align="center">
+      <img src="docs/images/rear-preview.png" width="640" alt="背屏徕卡取景与预览外模糊"><br>背屏取景与外围实时模糊<br><br>
+      <img src="docs/images/rear-menu.png" width="640" alt="背屏徕卡纯色下拉菜单"><br>背屏下拉菜单
     </td>
   </tr>
+</table>
+
+<!-- 下面一行两张图：独立 50% + 50% -->
+<table>
   <tr>
-    <td colspan="3" align="center">
-      <img src="docs/images/rear-instant-menu.png" width="480" alt="大头贴滤镜选择菜单"><br>
-      大头贴滤镜选择菜单
+    <td width="50%" align="center">
+      <img src="docs/images/rear-instant-menu.png" width="480" alt="大头贴滤镜选择菜单"><br>大头贴滤镜选择菜单
     </td>
-    <td colspan="3" align="center">
-      <img src="docs/images/rear-preview-instant.png" width="480" alt="大头贴拍摄界面"><br>
-      大头贴拍摄界面
+    <td width="50%" align="center">
+      <img src="docs/images/rear-preview-instant.png" width="480" alt="大头贴拍摄界面"><br>大头贴拍摄界面
     </td>
   </tr>
 </table>
