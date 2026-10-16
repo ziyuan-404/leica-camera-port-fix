@@ -63,7 +63,7 @@ final class RearMenu {
             @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
                 android.widget.ImageView indicator=(android.widget.ImageView)XposedHelpers.getObjectField(p.thisObject,"O");
                 if(indicator!=null){android.graphics.drawable.Drawable d=indicator.getDrawable();
-                    
+
                     if(rear()&&d instanceof android.graphics.drawable.GradientDrawable){
                         android.content.res.Resources res=indicator.getResources();float ratio=filterThumb(res)/res.getDimension(2131170402);
                         android.graphics.drawable.GradientDrawable shape=(android.graphics.drawable.GradientDrawable)d.mutate();
@@ -77,7 +77,7 @@ final class RearMenu {
             @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
                 android.widget.ImageView indicator=(android.widget.ImageView)XposedHelpers.getObjectField(p.thisObject,"O");
                 android.content.res.Resources res=indicator.getResources();int thumb=filterThumb(res);
-                
+
                 int frame=Math.round(thumb*68f/56f);ViewGroup.LayoutParams lp=indicator.getLayoutParams();lp.width=frame;lp.height=frame;indicator.setLayoutParams(lp);
                 indicator.setTranslationY(-(filterPitch(res)-thumb)/2f);
                 keepFilterFrame(indicator);
@@ -410,4 +410,3 @@ final class RearMenu {
     }
     static void log(String s){XposedBridge.log("NativeRearFix "+s);}
 }
-
