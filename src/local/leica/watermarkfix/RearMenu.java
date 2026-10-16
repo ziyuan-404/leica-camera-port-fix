@@ -237,7 +237,7 @@ final class RearMenu {
                 }},delay);
             }
         });
-        log("READY 0.8 native rear controllers + Leica resources");
+        log("READY 0.9 native rear controllers + Leica resources");
     }
     static boolean rear(){
         try{return (Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("K2.b",loader),"a0");}
@@ -335,19 +335,22 @@ final class RearMenu {
         button.setTag("local-native-rear-preview");button.setContentDescription("背屏预览");
         button.setImageDrawable(new RearPreviewIcon());button.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         button.setPadding(0,0,0,0);button.setBackground(null);
+        button.setVisibility(View.INVISIBLE);
         // Preserve OEM ESP: simultaneous preview, rear touch/hand shutter and native cancellation.
         final View.OnClickListener nativeAction=(View.OnClickListener)allocate("V9.B2");
         button.setOnClickListener(new View.OnClickListener(){public void onClick(View v){
             nativeAction.onClick(v);
         }});
         final android.widget.FrameLayout.LayoutParams lp=new android.widget.FrameLayout.LayoutParams(flash.getWidth(),flash.getHeight());
+        lp.gravity=Gravity.TOP|Gravity.LEFT;
         host.addView(button,lp);
         host.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){
             try{
                 Object c=XposedHelpers.callMethod(XposedHelpers.callStaticMethod(XposedHelpers.findClass("g2.a",loader),"a"),"x",XposedHelpers.findClass("r2.q",loader));
                 View f=description(bar,"闪光灯"),m=description(bar,"运动抓拍");
-                boolean visible=!rear()&&XposedHelpers.getIntField(c,"a")!=0&&f!=null&&f.isShown();
-                button.setVisibility(visible?View.VISIBLE:View.GONE);
+                boolean visible=!rear()&&XposedHelpers.getIntField(c,"a")!=0&&f!=null&&f.isShown()
+                        &&f.getWidth()>0&&f.getHeight()>0&&!f.isLayoutRequested()&&!bar.isLayoutRequested();
+                if(!visible)button.setVisibility(View.INVISIBLE);
                 if(visible){
                     // Position from layout coordinates: transformed screen origins move
                     // while the native controls rotate, even with a fixed layout.
@@ -355,17 +358,21 @@ final class RearMenu {
                     int left=Math.round(xy[0]+f.getWidth()+8*f.getResources().getDisplayMetrics().density);
                     if(m!=null&&m.isShown()){float[] mx=layoutOriginInHost(m,host);left=Math.round(mx[0]+(mx[0]-xy[0]));}
                     int top=Math.round(xy[1]);
-                    if(lp.leftMargin!=left||lp.topMargin!=top||lp.width!=f.getWidth()||lp.height!=f.getHeight()){
-                        lp.leftMargin=left;lp.topMargin=top;lp.width=f.getWidth();lp.height=f.getHeight();button.setLayoutParams(lp);
+                    if(lp.width!=f.getWidth()||lp.height!=f.getHeight()){
+                        lp.width=f.getWidth();lp.height=f.getHeight();button.setLayoutParams(lp);
                     }
+                    // Translate only this child: changing margins during pre-draw lets
+                    // the old origin render before the next layout/transition finishes.
+                    button.setTranslationX(left-button.getLeft());button.setTranslationY(top-button.getTop());
                     button.setPivotX(lp.width/2f);button.setPivotY(lp.height/2f);
                     // Follow the native control's current animation, including 270 -> 0.
                     button.setRotation(f.getRotation());
                     boolean enabled=(Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("com.android.camera.data.data.m",loader),"P");
                     button.setSelected(enabled);button.setContentDescription("背屏预览："+(enabled?"开启":"关闭"));
+                    button.setVisibility(button.getWidth()==lp.width&&button.getHeight()==lp.height?View.VISIBLE:View.INVISIBLE);
                 }
                 View extra=find(decor,"extra_main_top");if(extra!=null)hideOldPreview(extra);
-            }catch(Throwable e){button.setVisibility(View.GONE);}
+            }catch(Throwable e){button.setVisibility(View.INVISIBLE);}
             return true;
         }});
         log("MAIN_PREVIEW OEM ESP action=181, no tile, dynamic control-row position");

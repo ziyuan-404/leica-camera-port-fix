@@ -2,7 +2,7 @@
 
 适用于 **小米 17 Pro Max 背屏**的徕卡移植相机 LSPosed 补丁。保留相机原生控制器和操作逻辑，修正背屏布局、徕卡界面风格、变焦/滤镜适配，以及主屏背屏预览按钮的位置。
 
-**当前版本：0.8-native** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/latest) · [更新记录](CHANGELOG.md)
+**当前版本：0.9-native** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/latest) · [更新记录](CHANGELOG.md)
 
 ## 适用范围
 
@@ -66,7 +66,7 @@
 - 恢复本机变焦能力，处理其他 hook 把倍率限制在 0.7–1×、造成标签与画面不一致的问题。保留原生倍率点击、长按刻度和拖动算法。
 - 恢复原生大头贴能力入口；完整背屏相机模式为录像、拍照、人像、大头贴。
 - 补光灯常亮和大头贴的菜单背景跟随原生浅色主题，修复深色图标叠在固定深灰底板上看不清的问题。
-- 主屏背屏预览按钮放到闪光灯/运动抓拍同一行；0.8 使用布局坐标定位，图标以自身中心同步原生按钮的旋转动画，修复横向旋转错位。
+- 主屏背屏预览按钮放到闪光灯/运动抓拍同一行；图标以自身中心同步原生按钮旋转，0.9 修复冷启动时从左上角飞入目标位置的问题。
 - 保留原生徕卡水印模板的 Logo 兼容修复，资源在设备上从已安装相机读取。
 
 ### 两个背屏入口
@@ -79,7 +79,7 @@
 ## 安装与更新
 
 1. 先确认基础移植模块版本和相机版本与上表一致，基础相机本身能正常使用。
-2. 从 [Releases](https://github.com/ziyuan-404/leica-camera-port-fix/releases) 下载 `Leica-Camera-Fix-0.8.apk` 并安装。
+2. 从 [Releases](https://github.com/ziyuan-404/leica-camera-port-fix/releases) 下载 `Leica-Camera-Fix-0.9.apk` 并安装。
 3. 在 LSPosed 启用 **Leica Camera Fix**，作用域只选 `com.android.camera`（相机）。
 4. 强制停止并重新打开相机；如框架尚未加载新补丁，再重启手机。
 
