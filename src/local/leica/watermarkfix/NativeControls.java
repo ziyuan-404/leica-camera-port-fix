@@ -28,12 +28,6 @@ final class NativeControls {
                 RearMenu.log("NATIVE_CONTROL_FAILED " + name + ": " + failure);
             }
         }
-        XposedBridge.hookAllMethods(XposedHelpers.findClass("r2.q", loader), "R", new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam p) {
-                if (XposedHelpers.getIntField(p.args[0], "a") == 171)
-                    XposedHelpers.setIntField(p.thisObject, "a", 0);
-            }
-        });
         // Both earlier patches and recent base adapters add a relocated ESP control.
         // Keep the original extra-top control and its original visibility policy.
         XposedHelpers.findAndHookMethod(View.class, "setVisibility", int.class, new XC_MethodHook() {
