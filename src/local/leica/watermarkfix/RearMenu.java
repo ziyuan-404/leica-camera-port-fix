@@ -12,6 +12,18 @@ final class RearMenu {
     static Object leica;
     static void install(ClassLoader cl) throws Exception {
         loader=cl;
+        // Suppress the old extra-top entry before its first frame, including
+        // RecyclerView rebinds that otherwise restore it during cold startup.
+        XposedHelpers.findAndHookMethod(View.class,"setContentDescription",CharSequence.class,new XC_MethodHook(){
+            @Override protected void afterHookedMethod(MethodHookParam p){
+                View v=(View)p.thisObject;if(legacyPreview(v)&&!rear())v.setVisibility(View.GONE);
+            }
+        });
+        XposedHelpers.findAndHookMethod(View.class,"setVisibility",int.class,new XC_MethodHook(){
+            @Override protected void beforeHookedMethod(MethodHookParam p){
+                if((Integer)p.args[0]==View.VISIBLE&&legacyPreview((View)p.thisObject)&&!rear())p.args[0]=View.GONE;
+            }
+        });
         XposedHelpers.findAndHookMethod(View.class,"setOnClickListener",View.OnClickListener.class,new XC_MethodHook(){
             @Override protected void afterHookedMethod(MethodHookParam p){
                 View v=(View)p.thisObject;
@@ -344,13 +356,16 @@ final class RearMenu {
         final android.widget.FrameLayout.LayoutParams lp=new android.widget.FrameLayout.LayoutParams(flash.getWidth(),flash.getHeight());
         lp.gravity=Gravity.TOP|Gravity.LEFT;
         host.addView(button,lp);
-        host.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){
+        host.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener(){
+            int lastLeft=Integer.MIN_VALUE,lastTop,lastWidth,lastHeight;
+            long stableSince;
+            public boolean onPreDraw(){
             try{
                 Object c=XposedHelpers.callMethod(XposedHelpers.callStaticMethod(XposedHelpers.findClass("g2.a",loader),"a"),"x",XposedHelpers.findClass("r2.q",loader));
                 View f=description(bar,"闪光灯"),m=description(bar,"运动抓拍");
                 boolean visible=!rear()&&XposedHelpers.getIntField(c,"a")!=0&&f!=null&&f.isShown()
                         &&f.getWidth()>0&&f.getHeight()>0&&!f.isLayoutRequested()&&!bar.isLayoutRequested();
-                if(!visible)button.setVisibility(View.INVISIBLE);
+                if(!visible){button.setVisibility(View.INVISIBLE);stableSince=0;}
                 if(visible){
                     // Position from layout coordinates: transformed screen origins move
                     // while the native controls rotate, even with a fixed layout.
@@ -358,6 +373,10 @@ final class RearMenu {
                     int left=Math.round(xy[0]+f.getWidth()+8*f.getResources().getDisplayMetrics().density);
                     if(m!=null&&m.isShown()){float[] mx=layoutOriginInHost(m,host);left=Math.round(mx[0]+(mx[0]-xy[0]));}
                     int top=Math.round(xy[1]);
+                    long now=android.os.SystemClock.uptimeMillis();
+                    if(stableSince==0||lastLeft!=left||lastTop!=top||lastWidth!=f.getWidth()||lastHeight!=f.getHeight()){
+                        lastLeft=left;lastTop=top;lastWidth=f.getWidth();lastHeight=f.getHeight();stableSince=now;
+                    }
                     if(lp.width!=f.getWidth()||lp.height!=f.getHeight()){
                         lp.width=f.getWidth();lp.height=f.getHeight();button.setLayoutParams(lp);
                     }
@@ -369,7 +388,11 @@ final class RearMenu {
                     button.setRotation(f.getRotation());
                     boolean enabled=(Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("com.android.camera.data.data.m",loader),"P");
                     button.setSelected(enabled);button.setContentDescription("背屏预览："+(enabled?"开启":"关闭"));
-                    button.setVisibility(button.getWidth()==lp.width&&button.getHeight()==lp.height?View.VISIBLE:View.INVISIBLE);
+                    boolean settled=now-stableSince>=120&&f.getAlpha()>=.99f
+                            &&(m==null||!m.isShown()||m.getAlpha()>=.99f)
+                            &&button.getWidth()==lp.width&&button.getHeight()==lp.height;
+                    button.setVisibility(settled?View.VISIBLE:View.INVISIBLE);
+                    if(!settled)host.postInvalidateOnAnimation();
                 }
                 View extra=find(decor,"extra_main_top");if(extra!=null)hideOldPreview(extra);
             }catch(Throwable e){button.setVisibility(View.INVISIBLE);}
@@ -390,6 +413,10 @@ final class RearMenu {
     static void hideOldPreview(View root){
         if(root.getContentDescription()!=null&&root.getContentDescription().toString().startsWith("背屏预览"))root.setVisibility(View.GONE);
         if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++)hideOldPreview(((ViewGroup)root).getChildAt(i));
+    }
+    static boolean legacyPreview(View view){
+        return view.getClass().getName().equals("com.android.camera2.compat.theme.custom.mm.top.StrikethroughImageView")
+                &&view.getContentDescription()!=null&&view.getContentDescription().toString().startsWith("背屏预览");
     }
     /** OEM phone silhouette only; omit the ESP tile and center it like adjacent Leica glyphs. */
     static final class RearPreviewIcon extends android.graphics.drawable.Drawable {
