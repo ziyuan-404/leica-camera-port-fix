@@ -2,7 +2,7 @@
 
 适用于 **小米 17 Pro / 17 Pro Max 背屏**的徕卡移植相机 LSPosed 补丁。Pro Max 已实机验证；17 Pro 已加入原厂配置与硬件识别，尚未实机验证。保留相机原生控制器和操作逻辑，修正背屏布局、徕卡界面风格、变焦/滤镜适配，以及主屏背屏预览按钮的位置。
 
-**当前版本：1.1** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.1-native) · [更新记录](CHANGELOG.md) · [1.1 验证记录](docs/verification-1.1.md)
+**当前版本：1.1** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.1-native)
 
 ## 适用范围
 
