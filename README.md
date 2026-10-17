@@ -1,21 +1,23 @@
 # 徕卡相机移植修复
 
-适用于 **小米 17 Pro / 17 Pro Max 背屏**的徕卡移植相机 LSPosed 补丁。Pro Max 已实机验证；17 Pro 已加入原厂配置与硬件识别，尚未实机验证。保留相机原生控制器和操作逻辑，修正背屏布局、徕卡界面风格、变焦/滤镜适配，以及主屏背屏预览按钮的位置。
+适用于 **小米 17 Pro / 17 Pro Max 背屏**的徕卡移植相机 LSPosed 补丁。Pro Max 已实机验证；17 Pro 已加入原厂配置与硬件识别，尚未实机验证。保留相机原生控制器和操作逻辑，修正背屏布局、徕卡界面风格、变焦/滤镜适配，并恢复主屏背屏预览按钮的原厂位置。
 
-**当前版本：1.1** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.1-native)
+**当前版本：1.2.1** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.2.1-native)
 
 ## 适用范围
 
 | 项目 | 已验证环境 |
 | --- | --- |
 | 设备 | 小米 17 Pro Max，代号 `popsicle`，型号 `2509FPN0BC` |
-| 系统 | HyperOS `OS4.0.4.0.XPBCNXM`（1.1 本轮验证） |
-| 基础移植模块 | **Leica camera 0.225 / build225，KernelSU 版**（旧版 0.219 见历史记录） |
+| 系统 | HyperOS `OS4.0.4.0.XPBCNXM`（1.2.1 本轮验证） |
+| 基础移植模块 | **Leica camera 0.229 / build229，KernelSU 版**（1.1 为 0.225，旧版见历史记录） |
 | 模块 ID | `leica_camera_nezha28` |
 | 相机 | `com.android.camera`，`6.6.000570.5` / `660005705` |
 | 框架 | KernelSU、Zygisk、LSPosed；本补丁仅勾选相机 |
 
 背屏修复根据系统实际枚举的内置副屏启用，不依赖 `Build.DEVICE`、营销名称或 Device Faker 的产品属性。17 Pro 的 904×572 背屏对应 `Pandora` 原厂配置，Pro Max 的 976×596 背屏对应 `Popsicle`。主屏、投屏、HDMI 和虚拟显示不触发；未知背屏规格暂不套用其他机型配置。相机版本限制仍适用。
+
+1.2.1 恢复主屏/背屏 12.5M 与 50M、主屏人像 2×、本机焦段表和顶部原生 ESP 入口；人像不再显示 ESP 按钮。经系统原厂相机实测对照，拍照 2× 保持 2×，人像 2× 在 46/75mm 之间切换；标签显示与计时由相机控制。
 
 这是基础移植模块的附加修复 APK
 
@@ -73,7 +75,8 @@
 - 修复启用条件改为真实背屏硬件识别，伪装成 `nezha` 仍可使用对应本机配置。清理旧适配器监听器屏蔽、停用的 UI 调试导出和未使用字段；保留必要的原生提供器初始化。
 - 恢复原生大头贴能力入口；完整背屏相机模式为录像、拍照、人像、大头贴。
 - 补光灯常亮和大头贴的菜单背景跟随原生浅色主题，修复深色图标叠在固定深灰底板上看不清的问题。
-- 主屏背屏预览按钮放到闪光灯/运动抓拍同一行；图标以自身中心同步原生按钮旋转，0.9 修复冷启动时从左上角飞入目标位置的问题。
+- 恢复主屏/背屏拍照菜单的 12.5M 与 50M 选项，以及主屏人像 1/2/5× 档位。
+- 撤掉主屏背屏预览按钮的同行位置修改，恢复原厂顶部入口；隐藏基础模块额外创建的同行入口，人像模式不显示 ESP。
 - 保留原生徕卡水印模板的 Logo 兼容修复，资源在设备上从已安装相机读取。
 
 ### 两个背屏入口
@@ -92,7 +95,7 @@
 ## 安装与更新
 
 1. 先确认基础移植模块版本和相机版本与上表一致，基础相机本身能正常使用。
-2. 从 [1.1 Release](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.1-native) 下载并安装 `Leica-Camera-Fix-1.1.apk`。
+2. 从 [1.2.1 Release](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.2.1-native) 下载并安装 `Leica-Camera-Fix-1.2.1.apk`。
 3. 在 LSPosed 启用 **Leica Camera Fix**，作用域只选 `com.android.camera`（相机）。
 4. 强制停止并重新打开相机；如框架尚未加载新补丁，再重启手机。
 

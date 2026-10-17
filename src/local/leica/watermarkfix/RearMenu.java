@@ -51,18 +51,6 @@ final class RearMenu {
 
     static void install(ClassLoader cl, RearDevice device) throws Exception {
         loader=cl;
-        // Suppress the old extra-top entry before its first frame, including
-        // RecyclerView rebinds that otherwise restore it during cold startup.
-        XposedHelpers.findAndHookMethod(View.class,"setContentDescription",CharSequence.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p){
-                View v=(View)p.thisObject;if(legacyPreview(v)&&!rear())v.setVisibility(View.GONE);
-            }
-        });
-        XposedHelpers.findAndHookMethod(View.class,"setVisibility",int.class,new XC_MethodHook(){
-            @Override protected void beforeHookedMethod(MethodHookParam p){
-                if((Integer)p.args[0]==View.VISIBLE&&legacyPreview((View)p.thisObject)&&!rear())p.args[0]=View.GONE;
-            }
-        });
         // Initialize the genuine LC provider before applying any contextual UI predicate.
         XposedHelpers.getStaticObjectField(XposedHelpers.findClass("o9.a",cl),"a");
         XposedHelpers.getStaticObjectField(XposedHelpers.findClass("i2.a",cl),"a");
@@ -92,17 +80,7 @@ final class RearMenu {
             @Override protected void beforeHookedMethod(MethodHookParam p){if(rear())p.setResult(true);}
         });
         final Object physical=XposedHelpers.newInstance(XposedHelpers.findClass(device.featureClass,cl));
-        // S6 enables native rear Smart FOV; pair it with the physical w1
-        // stop table. A missing table falls back to general lens stops,
-        // offering 5x to a portrait session whose native range ends at 2x.
-        for(final String name:new String[]{"S6","S4","m5","y5","I5","w1"}){
-            final Method nativeMethod=XposedHelpers.findMethodBestMatch(physical.getClass(),name);
-            Method portMethod=XposedHelpers.findMethodBestMatch(feature.getClass(),name);
-            log("CAPABILITY "+name+" physical="+nativeMethod.invoke(physical)+" port="+portMethod.invoke(feature));
-            if(!nativeMethod.equals(portMethod))XposedBridge.hookMethod(portMethod,new XC_MethodHook(XC_MethodHook.PRIORITY_HIGHEST){
-                @Override protected void beforeHookedMethod(MethodHookParam p)throws Throwable{if(name.equals("S4")||name.equals("m5")||rear())p.setResult(nativeMethod.invoke(physical));}
-            });
-        }
+        NativeControls.install(cl, feature, physical);
         for(String operation:new String[]{"getDimensionPixelSize","getDimensionPixelOffset"})XposedHelpers.findAndHookMethod(android.content.res.Resources.class,operation,int.class,new XC_MethodHook(){
             @Override protected void beforeHookedMethod(MethodHookParam p){
                 int id=(Integer)p.args[0];
@@ -213,13 +191,12 @@ final class RearMenu {
                 for(int delay:new int[]{300,1200,2500})decor.postDelayed(new Runnable(){public void run(){
                     try{
                         if(activity.isFinishing())return;
-                        if(activity.getDisplay().getDisplayId()==0)addPreviewButton(activity);
                         if(activity.getDisplay().getDisplayId()==rearDisplayId)skinPreview(decor);
                     }catch(Throwable e){log("Camera controls: "+e);}
                 }},delay);
             }
         });
-        log("READY 1.1 native rear portrait zoom + native filters");
+        log("READY 1.2.1 native hardware controls + native filters");
     }
     static boolean rear(){
         try{return (Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("K2.b",loader),"a0");}
@@ -259,119 +236,6 @@ final class RearMenu {
         View effect=find(root,"popup_right_tip_image");if(effect instanceof android.widget.ImageView)skinEffect((android.widget.ImageView)effect);
         View thumb=find(root,"v9_thumbnail_layout");
         if(thumb!=null)try{XposedHelpers.callMethod(thumb,"setCardBackgroundColor",android.graphics.Color.TRANSPARENT);}catch(Throwable ignored){}
-    }
-    static View description(View root,String prefix){
-        if(root.getContentDescription()!=null&&root.getContentDescription().toString().startsWith(prefix))return root;
-        if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){View v=description(((ViewGroup)root).getChildAt(i),prefix);if(v!=null)return v;}
-        return null;
-    }
-    static void addPreviewButton(final android.app.Activity activity)throws Exception{
-        final View decor=activity.getWindow().getDecorView();
-        final ViewGroup host=(ViewGroup)find(decor,"top_bar_container");
-        final View bar=find(decor,"top_bar_view");
-        if(host==null||bar==null||host.findViewWithTag("local-native-rear-preview")!=null
-                ||upstreamPreview(host)!=null)return;
-        View flash=description(bar,"闪光灯");
-        if(flash==null||flash.getWidth()==0)return;
-        final android.widget.ImageView button=new android.widget.ImageView(activity);
-        button.setTag("local-native-rear-preview");button.setContentDescription("背屏预览");
-        button.setImageDrawable(new RearPreviewIcon());button.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        button.setPadding(0,0,0,0);button.setBackground(null);
-        button.setVisibility(View.INVISIBLE);
-        // Preserve OEM ESP: simultaneous preview, rear touch/hand shutter and native cancellation.
-        final View.OnClickListener nativeAction=(View.OnClickListener)allocate("V9.B2");
-        button.setOnClickListener(new View.OnClickListener(){public void onClick(View v){
-            nativeAction.onClick(v);
-        }});
-        final android.widget.FrameLayout.LayoutParams lp=new android.widget.FrameLayout.LayoutParams(flash.getWidth(),flash.getHeight());
-        lp.gravity=Gravity.TOP|Gravity.LEFT;
-        host.addView(button,lp);
-        host.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener(){
-            int lastLeft=Integer.MIN_VALUE,lastTop,lastWidth,lastHeight;
-            long stableSince;
-            public boolean onPreDraw(){
-            try{
-                if(upstreamPreview(host)!=null){button.setVisibility(View.GONE);return true;}
-                Object c=XposedHelpers.callMethod(XposedHelpers.callStaticMethod(XposedHelpers.findClass("g2.a",loader),"a"),"x",XposedHelpers.findClass("r2.q",loader));
-                View f=description(bar,"闪光灯"),m=description(bar,"运动抓拍");
-                boolean visible=!rear()&&XposedHelpers.getIntField(c,"a")!=0&&f!=null&&f.isShown()
-                        &&f.getWidth()>0&&f.getHeight()>0&&!f.isLayoutRequested()&&!bar.isLayoutRequested();
-                if(!visible){button.setVisibility(View.INVISIBLE);stableSince=0;}
-                if(visible){
-                    // Position from layout coordinates: transformed screen origins move
-                    // while the native controls rotate, even with a fixed layout.
-                    float[] xy=layoutOriginInHost(f,host);
-                    int left=Math.round(xy[0]+f.getWidth()+8*f.getResources().getDisplayMetrics().density);
-                    if(m!=null&&m.isShown()){float[] mx=layoutOriginInHost(m,host);left=Math.round(mx[0]+(mx[0]-xy[0]));}
-                    int top=Math.round(xy[1]);
-                    long now=android.os.SystemClock.uptimeMillis();
-                    if(stableSince==0||lastLeft!=left||lastTop!=top||lastWidth!=f.getWidth()||lastHeight!=f.getHeight()){
-                        lastLeft=left;lastTop=top;lastWidth=f.getWidth();lastHeight=f.getHeight();stableSince=now;
-                    }
-                    if(lp.width!=f.getWidth()||lp.height!=f.getHeight()){
-                        lp.width=f.getWidth();lp.height=f.getHeight();button.setLayoutParams(lp);
-                    }
-                    // Translate only this child: changing margins during pre-draw lets
-                    // the old origin render before the next layout/transition finishes.
-                    button.setTranslationX(left-button.getLeft());button.setTranslationY(top-button.getTop());
-                    button.setPivotX(lp.width/2f);button.setPivotY(lp.height/2f);
-                    // Follow the native control's current animation, including 270 -> 0.
-                    button.setRotation(f.getRotation());
-                    boolean enabled=(Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("com.android.camera.data.data.m",loader),"P");
-                    button.setSelected(enabled);button.setContentDescription("背屏预览："+(enabled?"开启":"关闭"));
-                    boolean settled=now-stableSince>=120&&f.getAlpha()>=.99f
-                            &&(m==null||!m.isShown()||m.getAlpha()>=.99f)
-                            &&button.getWidth()==lp.width&&button.getHeight()==lp.height;
-                    button.setVisibility(settled?View.VISIBLE:View.INVISIBLE);
-                    if(!settled)host.postInvalidateOnAnimation();
-                }
-                View extra=find(decor,"extra_main_top");if(extra!=null)hideOldPreview(extra);
-            }catch(Throwable e){button.setVisibility(View.INVISIBLE);}
-            return true;
-        }});
-        log("MAIN_PREVIEW OEM ESP action=181, no tile, dynamic control-row position");
-    }
-    static float[] layoutOriginInHost(View child,ViewGroup host){
-        float x=0,y=0;View current=child;
-        while(current!=host){
-            x+=current.getLeft()+current.getTranslationX();y+=current.getTop()+current.getTranslationY();
-            android.view.ViewParent parent=current.getParent();
-            if(!(parent instanceof ViewGroup))throw new IllegalArgumentException("Control is outside the top bar host");
-            ViewGroup group=(ViewGroup)parent;x-=group.getScrollX();y-=group.getScrollY();current=group;
-        }
-        return new float[]{x,y};
-    }
-    static void hideOldPreview(View root){
-        if(root.getContentDescription()!=null&&root.getContentDescription().toString().startsWith("背屏预览"))root.setVisibility(View.GONE);
-        if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++)hideOldPreview(((ViewGroup)root).getChildAt(i));
-    }
-    static boolean legacyPreview(View view){
-        return view.getClass().getName().equals("com.android.camera2.compat.theme.custom.mm.top.StrikethroughImageView")
-                &&view.getContentDescription()!=null&&view.getContentDescription().toString().startsWith("背屏预览");
-    }
-    static View upstreamPreview(View root){
-        if("kobbin.leicaflavor.native-esp".equals(root.getTag(2131754994)))return root;
-        if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){
-            View found=upstreamPreview(((ViewGroup)root).getChildAt(i));if(found!=null)return found;
-        }
-        return null;
-    }
-    /** OEM phone silhouette only; omit the ESP tile and center it like adjacent Leica glyphs. */
-    static final class RearPreviewIcon extends android.graphics.drawable.Drawable {
-        final android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-        final android.graphics.Path path;
-        final android.graphics.RectF glyph=new android.graphics.RectF();
-        RearPreviewIcon(){
-            path=(android.graphics.Path)XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.util.PathParser",null),"createPathFromPathData","M23.31,15.332C24.427,15.332 24.985,15.333 25.411,15.55C25.786,15.741 26.092,16.046 26.283,16.421C26.5,16.847 26.5,17.406 26.5,18.521V29.477C26.5,30.593 26.5,31.151 26.283,31.577C26.092,31.952 25.786,32.257 25.411,32.448C24.985,32.665 24.427,32.666 23.31,32.666H16.69C15.573,32.666 15.015,32.665 14.589,32.448C14.214,32.257 13.908,31.952 13.717,31.577C13.5,31.151 13.5,30.593 13.5,29.477L13.5,18.521C13.5,17.406 13.5,16.847 13.717,16.421C13.908,16.046 14.214,15.741 14.589,15.55C15.015,15.333 15.573,15.332 16.69,15.332L23.31,15.332ZM15.614,23.132C15.42,23.132 15.323,23.131 15.249,23.169C15.184,23.202 15.131,23.255 15.098,23.32C15.06,23.395 15.06,23.492 15.06,23.687V29.441C15.06,30.024 15.059,30.315 15.173,30.537C15.273,30.733 15.432,30.892 15.627,30.991C15.849,31.105 16.141,31.105 16.724,31.105H23.275C23.858,31.105 24.15,31.105 24.372,30.991C24.568,30.892 24.726,30.733 24.826,30.537C24.94,30.315 24.94,30.024 24.94,29.441V23.687C24.94,23.492 24.94,23.395 24.902,23.32C24.869,23.255 24.815,23.202 24.75,23.169C24.676,23.131 24.579,23.132 24.385,23.132H15.614ZM16.533,19.664C15.815,19.664 15.234,20.246 15.233,20.964C15.234,21.682 15.815,22.264 16.533,22.264C17.251,22.263 17.833,21.681 17.833,20.964C17.833,20.246 17.251,19.664 16.533,19.664ZM16.515,16.632C15.805,16.642 15.233,17.219 15.233,17.931C15.234,18.649 15.815,19.23 16.533,19.23C17.251,19.23 17.833,18.648 17.833,17.931C17.833,17.219 17.261,16.642 16.552,16.632H16.515Z");
-            path.computeBounds(glyph,true);paint.setColor(android.graphics.Color.WHITE);path.setFillType(android.graphics.Path.FillType.EVEN_ODD);
-        }
-        public void draw(android.graphics.Canvas c){
-            android.graphics.Rect b=getBounds();float scale=b.height()*.60f/glyph.height();
-            c.save();c.translate(b.exactCenterX()-glyph.centerX()*scale,b.exactCenterY()-glyph.centerY()*scale);c.scale(scale,scale);c.drawPath(path,paint);c.restore();
-        }
-        public void setAlpha(int alpha){paint.setAlpha(alpha);invalidateSelf();}
-        public void setColorFilter(android.graphics.ColorFilter filter){paint.setColorFilter(filter);invalidateSelf();}
-        public int getOpacity(){return android.graphics.PixelFormat.TRANSLUCENT;}
     }
     static void log(String s){XposedBridge.log("NativeRearFix "+s);}
 }
