@@ -10,8 +10,8 @@ android {
         applicationId 'local.leica.watermarkfix'
         minSdk 29
         targetSdk 34
-        versionCode 12
-        versionName '0.10-native'
+        versionCode 15
+        versionName '1.1'
     }
     sourceSets {
         main {

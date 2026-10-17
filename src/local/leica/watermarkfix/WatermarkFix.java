@@ -53,8 +53,8 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
                     }
                 }
             });
-            log("READY 0.2: official logo for native template; original model formatter retained");
-            try { RearMenu.install(loader); }
+            log("READY 1.1: official logo for native template; original model formatter retained");
+            try { RearMenu.installWhenReady(loader); }
             catch (Throwable rearFailure) { log("REAR_HOOK_ERROR: " + rearFailure); }
         } catch (Throwable failure) {
             log("HOOK_ERROR: " + failure.getClass().getSimpleName() + ": " + failure.getMessage());

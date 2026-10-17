@@ -8,9 +8,48 @@ import de.robv.android.xposed.*;
 /** Native rear-display controllers with the existing Leica skin. */
 final class RearMenu {
     static ClassLoader loader;
-    static final boolean DEBUG = false;
-    static Object leica;
-    static void install(ClassLoader cl) throws Exception {
+    static int rearDisplayId = -1;
+    static boolean installationAttempted;
+
+    static void installWhenReady(final ClassLoader cl) {
+        android.app.Application app = (android.app.Application) XposedHelpers.callStaticMethod(
+                XposedHelpers.findClass("android.app.ActivityThread", cl), "currentApplication");
+        if (app != null) installForHardware(cl, app);
+        else XposedHelpers.findAndHookMethod(android.app.Application.class, "attach",
+                android.content.Context.class, new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                installForHardware(cl, (android.content.Context) p.args[0]);
+            }
+        });
+    }
+
+    static synchronized void installForHardware(ClassLoader cl, android.content.Context context) {
+        if (installationAttempted) return;
+        installationAttempted = true;
+        try {
+            android.hardware.display.DisplayManager manager = (android.hardware.display.DisplayManager)
+                    context.getSystemService(android.content.Context.DISPLAY_SERVICE);
+            if (manager != null) for (Display display : manager.getDisplays()) {
+                int type = (Integer) XposedHelpers.callMethod(display, "getType");
+                Display.Mode mode = display.getMode();
+                RearDevice device = RearDevice.forPanel(display.getDisplayId(), type,
+                        mode.getPhysicalWidth(), mode.getPhysicalHeight());
+                if (device != null) {
+                    rearDisplayId = display.getDisplayId();
+                    log("HARDWARE rear=" + rearDisplayId + " panel=" + mode.getPhysicalWidth()
+                            + "x" + mode.getPhysicalHeight() + " profile=" + device.name
+                            + " reportedDevice=" + android.os.Build.DEVICE);
+                    install(cl, device);
+                    return;
+                }
+            }
+            log("SKIPPED rear UI: no supported internal rear panel");
+        } catch (Throwable failure) {
+            log("REAR_HOOK_ERROR: " + failure);
+        }
+    }
+
+    static void install(ClassLoader cl, RearDevice device) throws Exception {
         loader=cl;
         // Suppress the old extra-top entry before its first frame, including
         // RecyclerView rebinds that otherwise restore it during cold startup.
@@ -25,7 +64,7 @@ final class RearMenu {
             }
         });
         // Initialize the genuine LC provider before applying any contextual UI predicate.
-        leica=XposedHelpers.getStaticObjectField(XposedHelpers.findClass("o9.a",cl),"a");
+        XposedHelpers.getStaticObjectField(XposedHelpers.findClass("o9.a",cl),"a");
         XposedHelpers.getStaticObjectField(XposedHelpers.findClass("i2.a",cl),"a");
         XposedHelpers.getStaticObjectField(XposedHelpers.findClass("X6.i",cl),"a");
         // Use the shipped native rear beauty/filter view factory as a whole.
@@ -52,8 +91,11 @@ final class RearMenu {
         XposedBridge.hookMethod(rearMaterial,new XC_MethodHook(){
             @Override protected void beforeHookedMethod(MethodHookParam p){if(rear())p.setResult(true);}
         });
-        final Object physical=XposedHelpers.newInstance(XposedHelpers.findClass("\uc51b\uc517\uc515\uc556\uc515\uc511\uc556\uc51c\uc51d\uc50e\uc511\uc51b\uc51d\uc556\uc528\uc517\uc508\uc50b\uc511\uc51b\uc514\uc51d",cl));
-        for(final String name:new String[]{"S6","S4","m5","y5","I5"}){
+        final Object physical=XposedHelpers.newInstance(XposedHelpers.findClass(device.featureClass,cl));
+        // S6 enables native rear Smart FOV; pair it with the physical w1
+        // stop table. A missing table falls back to general lens stops,
+        // offering 5x to a portrait session whose native range ends at 2x.
+        for(final String name:new String[]{"S6","S4","m5","y5","I5","w1"}){
             final Method nativeMethod=XposedHelpers.findMethodBestMatch(physical.getClass(),name);
             Method portMethod=XposedHelpers.findMethodBestMatch(feature.getClass(),name);
             log("CAPABILITY "+name+" physical="+nativeMethod.invoke(physical)+" port="+portMethod.invoke(feature));
@@ -103,12 +145,6 @@ final class RearMenu {
                 }
             }
         });
-        XposedHelpers.findAndHookMethod(ViewTreeObserver.class,"addOnPreDrawListener",
-                ViewTreeObserver.OnPreDrawListener.class,new XC_MethodHook(){
-            @Override protected void beforeHookedMethod(MethodHookParam p){
-                if(p.args[0]!=null && (p.args[0].getClass().getName().equals("com.kobbin.leicaflavor.d0")||p.args[0].getClass().getName().equals("com.kobbin.leicaflavor.e0")))p.setResult(null);
-            }
-        });
         XposedHelpers.findAndHookMethod("o5.G",cl,"Dr",new XC_MethodHook(){
             @Override protected void beforeHookedMethod(MethodHookParam p)throws Throwable{
                 if(!rear())return;replaceMenuBackground(p.thisObject);p.setResult(null);
@@ -141,10 +177,11 @@ final class RearMenu {
                 lp.width=root.getResources().getDimensionPixelSize(2131171321);
                 root.setLayoutParams(lp);
                 View label=root.findViewById(2131429642);
-                if(label!=null&&label.getLayoutParams() instanceof ViewGroup.MarginLayoutParams){
+                if(label!=null&&label.getTag(2131754995)==null&&label.getLayoutParams() instanceof ViewGroup.MarginLayoutParams){
                     ViewGroup.MarginLayoutParams textLp=(ViewGroup.MarginLayoutParams)label.getLayoutParams();
                     textLp.topMargin+=Math.round(4*root.getResources().getDisplayMetrics().density);
                     label.setLayoutParams(textLp);
+                    label.setTag(2131754995,Boolean.TRUE);
                 }
             }
         });
@@ -177,13 +214,12 @@ final class RearMenu {
                     try{
                         if(activity.isFinishing())return;
                         if(activity.getDisplay().getDisplayId()==0)addPreviewButton(activity);
-                        if(activity.getDisplay().getDisplayId()==1)skinPreview(decor);
-                        if(DEBUG){StringBuilder state=new StringBuilder();dump(decor,state,0);java.nio.file.Files.write(new java.io.File(activity.getCacheDir(),"local-ui-"+activity.getDisplay().getDisplayId()+".txt").toPath(),state.toString().getBytes("UTF-8"));}
+                        if(activity.getDisplay().getDisplayId()==rearDisplayId)skinPreview(decor);
                     }catch(Throwable e){log("Camera controls: "+e);}
                 }},delay);
             }
         });
-        log("READY 0.10-native native rear filters + color only");
+        log("READY 1.1 native rear portrait zoom + native filters");
     }
     static boolean rear(){
         try{return (Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("K2.b",loader),"a0");}
@@ -233,7 +269,8 @@ final class RearMenu {
         final View decor=activity.getWindow().getDecorView();
         final ViewGroup host=(ViewGroup)find(decor,"top_bar_container");
         final View bar=find(decor,"top_bar_view");
-        if(host==null||bar==null||host.findViewWithTag("local-native-rear-preview")!=null)return;
+        if(host==null||bar==null||host.findViewWithTag("local-native-rear-preview")!=null
+                ||upstreamPreview(host)!=null)return;
         View flash=description(bar,"闪光灯");
         if(flash==null||flash.getWidth()==0)return;
         final android.widget.ImageView button=new android.widget.ImageView(activity);
@@ -254,6 +291,7 @@ final class RearMenu {
             long stableSince;
             public boolean onPreDraw(){
             try{
+                if(upstreamPreview(host)!=null){button.setVisibility(View.GONE);return true;}
                 Object c=XposedHelpers.callMethod(XposedHelpers.callStaticMethod(XposedHelpers.findClass("g2.a",loader),"a"),"x",XposedHelpers.findClass("r2.q",loader));
                 View f=description(bar,"闪光灯"),m=description(bar,"运动抓拍");
                 boolean visible=!rear()&&XposedHelpers.getIntField(c,"a")!=0&&f!=null&&f.isShown()
@@ -311,6 +349,13 @@ final class RearMenu {
         return view.getClass().getName().equals("com.android.camera2.compat.theme.custom.mm.top.StrikethroughImageView")
                 &&view.getContentDescription()!=null&&view.getContentDescription().toString().startsWith("背屏预览");
     }
+    static View upstreamPreview(View root){
+        if("kobbin.leicaflavor.native-esp".equals(root.getTag(2131754994)))return root;
+        if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){
+            View found=upstreamPreview(((ViewGroup)root).getChildAt(i));if(found!=null)return found;
+        }
+        return null;
+    }
     /** OEM phone silhouette only; omit the ESP tile and center it like adjacent Leica glyphs. */
     static final class RearPreviewIcon extends android.graphics.drawable.Drawable {
         final android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
@@ -327,13 +372,6 @@ final class RearMenu {
         public void setAlpha(int alpha){paint.setAlpha(alpha);invalidateSelf();}
         public void setColorFilter(android.graphics.ColorFilter filter){paint.setColorFilter(filter);invalidateSelf();}
         public int getOpacity(){return android.graphics.PixelFormat.TRANSLUCENT;}
-    }
-    static void dump(View v,StringBuilder s,int depth){
-        if(depth>30)return;for(int i=0;i<depth;i++)s.append(' ');
-        String id="";try{id=v.getResources().getResourceEntryName(v.getId());}catch(Throwable ignored){}
-        int[] xy=new int[2];v.getLocationOnScreen(xy);
-        s.append(v.getClass().getName()).append(' ').append(id).append(" xy=").append(xy[0]).append(',').append(xy[1]).append(" size=").append(v.getWidth()).append('x').append(v.getHeight()).append(" visibility=").append(v.getVisibility()).append(" desc=").append(v.getContentDescription()).append('\n');
-        if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++)dump(((ViewGroup)v).getChildAt(i),s,depth+1);
     }
     static void log(String s){XposedBridge.log("NativeRearFix "+s);}
 }

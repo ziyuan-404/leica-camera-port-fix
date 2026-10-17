@@ -17,4 +17,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Test physical rear-display profiles
+        run: |
+          javac --release 8 -d build/profile-tests src/local/leica/watermarkfix/RearDevice.java tests/local/leica/watermarkfix/RearDeviceTest.java
+          java -cp build/profile-tests local.leica.watermarkfix.RearDeviceTest
       - run: gradle --no-daemon assembleDebug
