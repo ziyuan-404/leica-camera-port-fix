@@ -24,92 +24,26 @@ final class RearMenu {
                 if((Integer)p.args[0]==View.VISIBLE&&legacyPreview((View)p.thisObject)&&!rear())p.args[0]=View.GONE;
             }
         });
-        XposedHelpers.findAndHookMethod(View.class,"setOnClickListener",View.OnClickListener.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p){
-                View v=(View)p.thisObject;
-                if(v.getId()!=0x7f0b0859||!rear())return;
-                Object listener=p.args[0];
-                if(listener!=null&&listener.getClass().getName().equals("y4.e"))try{
-                    Object action=XposedHelpers.getObjectField(listener,"d");
-                    if(action!=null&&action.getClass().getName().equals("Y4.i"))
-                        XposedHelpers.setObjectField(listener,"d",XposedHelpers.newInstance(XposedHelpers.findClass("Y4.k",loader),0));
-                }catch(Throwable e){log("Filter entrance: "+e);}
-            }
-        });
-        XposedHelpers.findAndHookMethod("androidx.recyclerview.widget.RecyclerView",cl,"setAdapter",XposedHelpers.findClass("androidx.recyclerview.widget.RecyclerView$g",cl),new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p){
-                if(!DEBUG)return;final View view=(View)p.thisObject;String id="";try{id=view.getResources().getResourceEntryName(view.getId());}catch(Throwable ignored){}
-                log("ADAPTER "+id+" "+(p.args[0]==null?"null":p.args[0].getClass().getName())+" rear="+rear());
-                if(id.contains("effect")||id.contains("filter"))view.postDelayed(new Runnable(){public void run(){try{StringBuilder s=new StringBuilder();dump(view.getRootView(),s,0);java.nio.file.Files.write(new java.io.File(view.getContext().getCacheDir(),"local-filter-ui-"+(view.getDisplay()==null?-1:view.getDisplay().getDisplayId())+".txt").toPath(),s.toString().getBytes("UTF-8"));}catch(Throwable e){log("FILTER_DUMP "+e);}}},700);
-            }
-        });
         // Initialize the genuine LC provider before applying any contextual UI predicate.
         leica=XposedHelpers.getStaticObjectField(XposedHelpers.findClass("o9.a",cl),"a");
         XposedHelpers.getStaticObjectField(XposedHelpers.findClass("i2.a",cl),"a");
         XposedHelpers.getStaticObjectField(XposedHelpers.findClass("X6.i",cl),"a");
-        // Reuse the main photo filter fragment (category 7), with its back-camera catalog.
-        XposedHelpers.findAndHookMethod("com.android.camera.data.data.i",cl,"v0",new XC_MethodHook(){
-            @Override protected void beforeHookedMethod(MethodHookParam p){
-                if(!rear())return;
-                for(StackTraceElement frame:Thread.currentThread().getStackTrace())
-                    if(frame.getClassName().equals("v2.P")){p.setResult(false);return;}
-            }
+        // Use the shipped native rear beauty/filter view factory as a whole.
+        // Its own adapter owns item sizing, corners, labels and selection frame.
+        final Object nativeEffects=allocate("p9.v");
+        XposedHelpers.findAndHookMethod("y9.c",cl,"a",new XC_MethodHook(){
+            @Override protected void beforeHookedMethod(MethodHookParam p){if(rear())p.setResult(nativeEffects);}
         });
-        XposedHelpers.findAndHookMethod("com.android.camera.fragment.b0",cl,"initView",View.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
-                if(!DEBUG)return;Object component=XposedHelpers.getObjectField(p.thisObject,"Q");
-                java.util.List<?> items=(java.util.List<?>)XposedHelpers.callMethod(component,"getItems");
-                StringBuilder s=new StringBuilder("PHOTO_FILTER rear="+rear()+" count="+items.size());
-                for(Object item:items)s.append(" ").append(XposedHelpers.getObjectField(item,"q")).append(":").append(XposedHelpers.getIntField(item,"j"));
-                log(s.toString());
-            }
+        final Object nativeFilterData=allocate("j2.c");
+        XposedHelpers.findAndHookMethod("k2.a",cl,"c",new XC_MethodHook(){
+            @Override protected void beforeHookedMethod(MethodHookParam p){if(rear())p.setResult(nativeFilterData);}
         });
-        XposedHelpers.findAndHookMethod("com.android.camera.fragment.p",cl,"onCreateViewHolder",ViewGroup.class,int.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
-                if(!rear()||p.getResult()==null)return;
-                View root=(View)XposedHelpers.getObjectField(p.getResult(),"itemView");
-                styleFilterItem(root);
-            }
-        });
+        // Color only: retain the stock indicator drawable and all native geometry.
         XposedBridge.hookAllMethods(XposedHelpers.findClass("O9.i",cl),"Lr",new XC_MethodHook(){
             @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
+                if(!rear())return;
                 android.widget.ImageView indicator=(android.widget.ImageView)XposedHelpers.getObjectField(p.thisObject,"O");
-                if(indicator!=null){android.graphics.drawable.Drawable d=indicator.getDrawable();
-
-                    if(rear()&&d instanceof android.graphics.drawable.GradientDrawable){
-                        android.content.res.Resources res=indicator.getResources();float ratio=filterThumb(res)/res.getDimension(2131170402);
-                        android.graphics.drawable.GradientDrawable shape=(android.graphics.drawable.GradientDrawable)d.mutate();
-                        shape.setCornerRadius(res.getDimension(2131170386)*ratio);
-                        shape.setStroke(Math.round(res.getDimension(2131171712)*ratio),res.getColor(2131102301,null));
-                    }
-                }
-            }
-        });
-        XposedHelpers.findAndHookMethod("O9.i",cl,"updateView4SecondScreen",View.class,android.os.Bundle.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
-                android.widget.ImageView indicator=(android.widget.ImageView)XposedHelpers.getObjectField(p.thisObject,"O");
-                android.content.res.Resources res=indicator.getResources();int thumb=filterThumb(res);
-
-                int frame=Math.round(thumb*68f/56f);ViewGroup.LayoutParams lp=indicator.getLayoutParams();lp.width=frame;lp.height=frame;indicator.setLayoutParams(lp);
-                indicator.setTranslationY(-(filterPitch(res)-thumb)/2f);
-                keepFilterFrame(indicator);
-                View original=find((View)p.args[0],"filter_original");if(original!=null)styleFilterItem(original);
-            }
-        });
-        XposedHelpers.findAndHookMethod("com.android.camera.fragment.e",cl,"v",View.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p)throws Throwable{
-                View thumb=find((View)p.args[0],"filter_still_parent");if(thumb==null)return;
-                float radius=((Number)XposedHelpers.callMethod(thumb,"getCornerRadius")).floatValue();
-                if(rear()){
-                    android.content.res.Resources res=thumb.getResources();
-                    XposedHelpers.callMethod(thumb,"setCornerRadius",radius*filterThumb(res)/res.getDimension(2131170402));
-                }
-
-            }
-        });
-        XposedHelpers.findAndHookMethod("com.android.camera.fragment.b0",cl,"updateView4SecondScreen",View.class,android.os.Bundle.class,new XC_MethodHook(){
-            @Override protected void afterHookedMethod(MethodHookParam p){
-                final View root=((View)p.args[0]).getRootView();root.postDelayed(new Runnable(){public void run(){styleFilterTitle(root.getRootView());}},200);
+                if(indicator!=null)indicator.setColorFilter(indicator.getResources().getColor(2131102301,null),android.graphics.PorterDuff.Mode.SRC_IN);
             }
         });
         Object feature=XposedHelpers.getObjectField(XposedHelpers.getStaticObjectField(XposedHelpers.findClass("Je.b$b",cl),"a"),"e");
@@ -130,9 +64,9 @@ final class RearMenu {
         for(String operation:new String[]{"getDimensionPixelSize","getDimensionPixelOffset"})XposedHelpers.findAndHookMethod(android.content.res.Resources.class,operation,int.class,new XC_MethodHook(){
             @Override protected void beforeHookedMethod(MethodHookParam p){
                 int id=(Integer)p.args[0];
-                if(id!=2131171321&&id!=2131171298&&id!=2131171301&&id!=2131170520&&id!=2131170487)return;
+                if(id!=2131171321&&id!=2131171298&&id!=2131171301&&id!=2131170520)return;
                 if(!rear())return;
-                if(id==2131170487){p.setResult(filterPitch((android.content.res.Resources)p.thisObject));return;}float dp;
+                float dp;
                 android.content.res.Resources res=(android.content.res.Resources)p.thisObject;
                 int sw=res.getConfiguration().smallestScreenWidthDp;
                 if(id==2131171321||id==2131171298)dp=sw>=210?80:77;
@@ -147,7 +81,7 @@ final class RearMenu {
         XposedHelpers.findAndHookMethod("y9.c",cl,"r",new XC_MethodHook(){
             @Override protected void beforeHookedMethod(MethodHookParam p){if(rear())p.setResult(nativeMenu);}
         });
-        for(final String name:new String[]{"E","i","n"}){
+        for(final String name:new String[]{"E","i","n","v","P"}){
             for(final Method method:XposedHelpers.findClass("y9.u",cl).getDeclaredMethods()){
                 if(!method.getName().equals(name))continue;
                 final Method nativeMethod=nativeTop.getClass().getDeclaredMethod(name,method.getParameterTypes());
@@ -249,7 +183,7 @@ final class RearMenu {
                 }},delay);
             }
         });
-        log("READY 0.9 native rear controllers + Leica resources");
+        log("READY 0.10-native native rear filters + color only");
     }
     static boolean rear(){
         try{return (Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("K2.b",loader),"a0");}
@@ -276,53 +210,12 @@ final class RearMenu {
         base.setBackgroundColor(color);base.setClipToOutline(false);
         if(blur!=null){XposedHelpers.callMethod(blur,"setEnableBlur",false);blur.setBackground(null);blur.setVisibility(View.GONE);}
     }
-    static void keepFilterFrame(final android.widget.ImageView indicator){
-        if(indicator.getTag(0x7f0ffff1)!=null)return;indicator.setTag(0x7f0ffff1,Boolean.TRUE);
-        indicator.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){
-            if(!rear())return true;int thumb=filterThumb(indicator.getResources()),size=Math.round(thumb*68f/56f);
-            ViewGroup.LayoutParams lp=indicator.getLayoutParams();if(lp.width!=size||lp.height!=size){lp.width=lp.height=size;indicator.setLayoutParams(lp);}
-            indicator.setTranslationY(-(filterPitch(indicator.getResources())-thumb)/2f);return true;
-        }});
-    }
-    static void styleFilterTitle(final View root){
-        final View title=find(root,"beauty_operate_menu_p"),preview=find(root,"v6_frame_layout");
-        if(title==null||preview==null||title.getTag(0x7f0ffff0)!=null)return;
-        title.setTag(0x7f0ffff0,Boolean.TRUE);
-        title.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){
-            if(!rear()||!title.isAttachedToWindow())return true;
-            int[] pt=new int[2],tt=new int[2];preview.getLocationOnScreen(pt);((View)title.getParent()).getLocationOnScreen(tt);
-            title.setPivotX(title.getWidth()/2f);title.setPivotY(title.getHeight()/2f);title.setScaleX(.7f);title.setScaleY(.7f);
-            float cx=pt[0]+preview.getWidth()/2f;
-            float cy=pt[1]+preview.getHeight()-16*title.getResources().getDisplayMetrics().density-title.getHeight()*.35f;
-            title.setTranslationX(cx-(tt[0]+title.getLeft()+title.getWidth()/2f));
-            title.setTranslationY(cy-(tt[1]+title.getTop()+title.getHeight()/2f));
-            return true;
-        }});
-    }
-    static int filterThumb(android.content.res.Resources res){return Math.round(33.5f*res.getDisplayMetrics().density);}
-    static int filterPitch(android.content.res.Resources res){return Math.round(filterThumb(res)*96f/56f);}
-    static void styleFilterItem(View root){
-        View thumb=find(root,"filter_still_parent");if(thumb==null)return;
-        android.content.res.Resources res=root.getResources();int size=filterThumb(res);
-        ViewGroup.LayoutParams rp=root.getLayoutParams();if(rp!=null){rp.height=root.getId()==root.getResources().getIdentifier("filter_original","id","com.android.camera")?size:filterPitch(res);root.setLayoutParams(rp);}
-        if(root instanceof android.widget.LinearLayout)((android.widget.LinearLayout)root).setGravity(android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL);
-        ViewGroup.MarginLayoutParams tp=(ViewGroup.MarginLayoutParams)thumb.getLayoutParams();tp.width=tp.height=size;tp.topMargin=0;tp.bottomMargin=0;thumb.setLayoutParams(tp);
-        XposedHelpers.callMethod(thumb,"setCornerRadius",size*8f/56f);
-        View texture=find(root,"effect_item_realtime");if(texture!=null){ViewGroup.LayoutParams tlp=texture.getLayoutParams();tlp.width=tlp.height=size;texture.setLayoutParams(tlp);}
-        if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){
-            View child=((ViewGroup)root).getChildAt(i);
-            if(child instanceof android.widget.ImageView&&child.getId()==2131428219){
-                android.widget.LinearLayout.LayoutParams bp=(android.widget.LinearLayout.LayoutParams)child.getLayoutParams();
-                bp.width=bp.height=Math.round(size*36f/56f);bp.topMargin=Math.round(size*4f/56f);child.setLayoutParams(bp);((android.widget.ImageView)child).setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            }
-        }
-    }
     static void skinEffect(android.widget.ImageView v){
         try{
             if(!v.getResources().getResourceEntryName(v.getId()).equals("popup_right_tip_image"))return;
-            int mode=XposedHelpers.getStaticIntField(XposedHelpers.findClass("com.android.camera.module.Y",loader),"a");
-            int icon=(Integer)XposedHelpers.callMethod(XposedHelpers.callMethod(leica,"e"),"v",mode);
-            v.setImageResource(icon);v.setBackground(null);v.clearColorFilter();
+            // The native binder chooses the drawable, hitbox and selected state.
+            // Recolor only its active tint; never swap the beauty/filter icon.
+            if(v.isSelected())v.setColorFilter(v.getResources().getColor(2131102301,null),android.graphics.PorterDuff.Mode.SRC_IN);
         }catch(Throwable e){log("SKIN "+e);}
     }
     static View find(View root,String name){int id=root.getResources().getIdentifier(name,"id","com.android.camera");return id==0?null:root.findViewById(id);}
