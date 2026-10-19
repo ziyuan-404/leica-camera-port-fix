@@ -2,22 +2,25 @@
 
 适用于 **小米 17 Pro / 17 Pro Max 背屏**的徕卡移植相机 LSPosed 补丁。Pro Max 已实机验证；17 Pro 已加入原厂配置与硬件识别，尚未实机验证。保留相机原生控制器和操作逻辑，修正背屏布局、徕卡界面风格、变焦/滤镜适配，并恢复主屏背屏预览按钮的原厂位置。
 
-**当前版本：1.2.1** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.2.1-native)
+**当前版本：1.2.2** · [下载 APK](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.2.2-native)
 
 ## 适用范围
 
 | 项目 | 已验证环境 |
 | --- | --- |
 | 设备 | 小米 17 Pro Max，代号 `popsicle`，型号 `2509FPN0BC` |
-| 系统 | HyperOS `OS4.0.4.0.XPBCNXM`（1.2.1 本轮验证） |
+| 系统 | HyperOS `OS4.0.4.0.XPBCNXM`（相机修复与编辑器分支的已验证环境） |
 | 基础移植模块 | **Leica camera 0.229 / build229，KernelSU 版**（1.1 为 0.225，旧版见历史记录） |
 | 模块 ID | `leica_camera_nezha28` |
 | 相机 | `com.android.camera`，`6.6.000570.5` / `660005705` |
-| 框架 | KernelSU、Zygisk、LSPosed；本补丁仅勾选相机 |
+| 编辑器 | `com.miui.mediaeditor`，`2.10.40.4.8` / `210994048`；仅精确匹配的 APK 启用入口修复 |
+| 框架 | KernelSU、Zygisk、LSPosed；本补丁勾选相机；使用一瞬入口修复时另勾选相册编辑器 |
 
 背屏修复根据系统实际枚举的内置副屏启用，不依赖 `Build.DEVICE`、营销名称或 Device Faker 的产品属性。17 Pro 的 904×572 背屏对应 `Pandora` 原厂配置，Pro Max 的 976×596 背屏对应 `Popsicle`。主屏、投屏、HDMI 和虚拟显示不触发；未知背屏规格暂不套用其他机型配置。相机版本限制仍适用。
 
 1.2 恢复主屏/背屏 12.5M 与 50M、主屏人像 2×、本机焦段表和顶部原生 ESP 入口；1.2.1 补回人像模式的原生 ESP 入口。经系统原厂相机实测对照，拍照 2× 保持 2×，人像 2× 在 46/75mm 之间切换；标签显示与计时由相机控制。
+
+1.2.2 新增相册“徕卡一瞬”入口兼容：Device Faker 伪装成徕卡机型时，配套编辑器若缺少 `LCC` 主题标记，会走“传奇一瞬”分支。补丁仅在编辑器主进程、精确匹配的 APK 和已知 `nezha` 徕卡身份下补全标记，保留原厂界面、照片解析、账号、额度与授权逻辑。相机修复与编辑器修复分别匹配各自 APK，不依赖对方进程。
 
 这是基础移植模块的附加修复 APK
 
@@ -95,9 +98,11 @@
 ## 安装与更新
 
 1. 先确认基础移植模块版本和相机版本与上表一致，基础相机本身能正常使用。
-2. 从 [1.2.1 Release](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.2.1-native) 下载并安装 `Leica-Camera-Fix-1.2.1.apk`。
-3. 在 LSPosed 启用 **Leica Camera Fix**，作用域只选 `com.android.camera`（相机）。
-4. 强制停止并重新打开相机；如框架尚未加载新补丁，再重启手机。
+2. 从 [1.2.2 Release](https://github.com/ziyuan-404/leica-camera-port-fix/releases/tag/v1.2.2-native) 下载并安装 `Leica-Camera-Fix-1.2.2.apk`。
+3. 在 LSPosed 启用 **Leica Camera Fix**，作用域选 `com.android.camera`（相机）；如需修复相册一瞬入口，同时选 `com.miui.mediaeditor`（小米相册编辑器），无需勾选相册 `com.miui.gallery`。
+4. 更新作用域后重启手机，重新打开相册中的一瞬照片。若已使用包含同一修复的 TEST2 基础模块，无需再叠加本补丁。
+
+1.2.2 沿用 1.2.1 的补丁包名与签名，可直接覆盖更新；不需要卸载 kobbin 的基础适配器。编辑器修复逻辑已通过集成版实测；独立 1.2.2 APK 已构建检查，完整云端出图尚未验证。
 
 APK 包名为 `local.leica.watermarkfix`。已有本项目同签名旧版可覆盖更新；自行编译使用自己的签名，不能直接覆盖已安装的发布版。需要撤销时，在 LSPosed 禁用本补丁并重启相机；基础移植模块不会随此操作卸载。
 

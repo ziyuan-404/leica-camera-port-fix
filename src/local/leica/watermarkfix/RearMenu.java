@@ -196,7 +196,7 @@ final class RearMenu {
                 }},delay);
             }
         });
-        log("READY 1.2.1 native hardware controls + native filters");
+        log("READY 1.2.2 native hardware controls + native filters");
     }
     static boolean rear(){
         try{return (Boolean)XposedHelpers.callStaticMethod(XposedHelpers.findClass("K2.b",loader),"a0");}

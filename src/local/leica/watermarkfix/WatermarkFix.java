@@ -28,6 +28,20 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
     private int reports;
 
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam load) throws Throwable {
+        if ("com.miui.mediaeditor".equals(load.packageName)
+                && "com.miui.mediaeditor".equals(load.processName)) {
+            try {
+                String source = (String) XposedHelpers.getObjectField(load.appInfo, "sourceDir");
+                if ("92049bff99de111fd59d3838d461019ea0c4b3b58a024ba9bf8da68df40c7e07".equals(sha256(source))) {
+                    EditorLeicaIdentity.install(load.classLoader);
+                } else {
+                    log("SKIPPED editor Leica identity: APK fingerprint differs");
+                }
+            } catch (Throwable failure) {
+                log("EDITOR_HOOK_ERROR: " + failure);
+            }
+            return;
+        }
         if (!"com.android.camera".equals(load.packageName)
                 || !"com.android.camera".equals(load.processName)) return;
         try {
@@ -53,7 +67,7 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
                     }
                 }
             });
-            log("READY 1.2.1: official logo for native template; original model formatter retained");
+            log("READY 1.2.2: official logo for native template; original model formatter retained");
             try { RearMenu.installWhenReady(loader); }
             catch (Throwable rearFailure) { log("REAR_HOOK_ERROR: " + rearFailure); }
         } catch (Throwable failure) {
