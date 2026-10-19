@@ -34,6 +34,7 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
                 String source = (String) XposedHelpers.getObjectField(load.appInfo, "sourceDir");
                 if ("92049bff99de111fd59d3838d461019ea0c4b3b58a024ba9bf8da68df40c7e07".equals(sha256(source))) {
                     EditorLeicaIdentity.install(load.classLoader);
+                    PortraitCompatibility.installEditor(load.classLoader);
                 } else {
                     log("SKIPPED editor Leica identity: APK fingerprint differs");
                 }
@@ -67,7 +68,7 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
                     }
                 }
             });
-            log("READY 1.2.2: official logo for native template; original model formatter retained");
+            log("READY 1.2.3: native portrait refocus compatibility; original photo metadata retained");
             try { RearMenu.installWhenReady(loader); }
             catch (Throwable rearFailure) { log("REAR_HOOK_ERROR: " + rearFailure); }
         } catch (Throwable failure) {
