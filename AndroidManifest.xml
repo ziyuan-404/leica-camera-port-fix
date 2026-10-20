@@ -1,11 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    android:versionCode="20" android:versionName="1.2.3">
+    android:versionCode="21" android:versionName="1.2.4">
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="34" />
     <application android:label="Leica Camera Fix" android:allowBackup="false"
         android:hasCode="true">
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription"
-            android:value="Hardware-detected Xiaomi 17 Pro / Pro Max native controls, Leica 91 logo and Media Editor portrait refocus compatibility. Original photo metadata retained. Scope: Camera and Media Editor." />
+            android:value="Hardware-detected native controls, spoofed watermark/EXIF display identity, official bitmap export and native portrait refocus. Scope: Camera and Media Editor." />
         <meta-data android:name="xposedminversion" android:value="82" />
         <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
     </application>
