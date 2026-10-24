@@ -25,7 +25,15 @@ final class PortraitCompatibility {
     }
 
     static void installEditor(ClassLoader loader) {
-        final Class<?> support = XposedHelpers.findClass("jt.a", loader);
+        installEditor(loader, false);
+    }
+
+    static void installEditor290(ClassLoader loader) {
+        installEditor(loader, true);
+    }
+
+    private static void installEditor(ClassLoader loader, final boolean current) {
+        final Class<?> support = XposedHelpers.findClass(current ? "b3.e" : "jt.a", loader);
         XC_MethodHook physicalEntry = new XC_MethodHook() {
             int reports;
             @Override protected void afterHookedMethod(MethodHookParam p) {
@@ -33,7 +41,7 @@ final class PortraitCompatibility {
                 try {
                     RearDevice device = physical();
                     Object exif = p.args[0];
-                    if (device == null || !nativeBokehAvailable(loader)) return;
+                    if (device == null || !nativeBokehAvailable(loader, current)) return;
                     if (!"mi_portrait".equals(XposedHelpers.callMethod(exif, "f", "algorithmComment"))) return;
                     Object xmp = XposedHelpers.callMethod(exif, "z");
                     if (xmp == null) return;
@@ -53,12 +61,14 @@ final class PortraitCompatibility {
                         if (p.args.length == 2) {
                             String model = (String) XposedHelpers.callMethod(exif, "f", "XiaomiProduct");
                             if (model == null || model.isEmpty()) model = (String) XposedHelpers.callMethod(exif, "f", "Model");
-                            if (!market(device).equals(model)) return;
+                            // Current photos can carry a spoofed display name. The
+                            // matching V4+ XMP depth product above proves hardware.
+                            if (!current && !market(device).equals(model)) return;
                             String depthVersion = (String) XposedHelpers.callMethod(exif, "f", "depthMapVersion");
                             if (depthVersion == null || Integer.parseInt(depthVersion) < 4) return;
                         }
                         p.setResult(true);
-                        XposedHelpers.setStaticBooleanField(support, "b", true);
+                        XposedHelpers.setStaticBooleanField(support, current ? "a" : "b", true);
                         if (reports++ < 8) RearMenu.log("REFOCUS_PHYSICAL_ENTRY method=" + p.method.getName()
                                 + " product=" + product + " version=" + version);
                         return;
@@ -67,10 +77,10 @@ final class PortraitCompatibility {
             }
         };
         Class<?> exifClass = XposedHelpers.findClass("pc.b", loader);
-        XposedHelpers.findAndHookMethod(support, "j", exifClass, android.net.Uri.class, physicalEntry);
-        XposedHelpers.findAndHookMethod(support, "k", exifClass, physicalEntry);
-        // Exact editor 2.10.40.4.8 only. Its old MiDualPhotoJni implementation is
-        // absent, while MiCameraJni is supplied by libmi_portrait_jni.so. Preserve
+        XposedHelpers.findAndHookMethod(support, current ? "b" : "j", exifClass, android.net.Uri.class, physicalEntry);
+        XposedHelpers.findAndHookMethod(support, current ? "c" : "k", exifClass, physicalEntry);
+        // Each editor is fingerprinted at entry. The old MiDualPhotoJni path can
+        // be absent, while MiCameraJni is supplied by libmi_portrait_jni.so. Preserve
         // the original cross-device policy; restore same-device classification
         // only for a V4+ photo whose product matches the actual supported panel.
         XposedHelpers.findAndHookMethod("y30.o", loader, "o", new XC_MethodHook() {
@@ -84,7 +94,7 @@ final class PortraitCompatibility {
                     String product = (String) XposedHelpers.getObjectField(metadata, "v");
                     int version = XposedHelpers.getIntField(metadata, "r");
                     if (!device.name.equals(product) || version < 4) return;
-                    if (!nativeBokehAvailable(loader)) return;
+                    if (!nativeBokehAvailable(loader, current)) return;
                     p.setResult(true);
                     if (reports++ < 8) RearMenu.log("REFOCUS_PHYSICAL_MATCH product=" + product
                             + " version=" + version + " reportedProduct=" + android.os.Build.PRODUCT);
@@ -97,8 +107,8 @@ final class PortraitCompatibility {
         return device == RearDevice.PRO_MAX ? "Xiaomi 17 Pro Max" : "Xiaomi 17 Pro";
     }
 
-    private static boolean nativeBokehAvailable(ClassLoader loader) {
-        Object capabilities = XposedHelpers.getStaticObjectField(XposedHelpers.findClass("jt.b", loader), "a");
+    private static boolean nativeBokehAvailable(ClassLoader loader, boolean current) {
+        Object capabilities = XposedHelpers.getStaticObjectField(XposedHelpers.findClass(current ? "jt.a" : "jt.b", loader), "a");
         return capabilities != null && XposedHelpers.getBooleanField(capabilities, "e")
                 && new java.io.File("/odm/lib64/libmiphone_capture_bokeh.so").isFile()
                 && new java.io.File("/odm/etc/camera/dualcam_bokeh_params_pro.json").isFile();

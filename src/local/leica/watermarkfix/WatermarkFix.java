@@ -14,15 +14,23 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
         "a53caba631d2e76510546e351f2cd24c5259c08383a9825d59a19e845fb3e7b0";
     private static final String EDITOR_SHA =
         "92049bff99de111fd59d3838d461019ea0c4b3b58a024ba9bf8da68df40c7e07";
+    private static final String CAMERA_290_SHA =
+        "4637b77d5b365260f8089318179206d42d0ba842fb08109f203f1ea9d3908f63";
+    private static final String EDITOR_290_SHA =
+        "ea1cd5c1dd7a8fcbefe8512c1cc4bf8d214ce8ae8900798e5c3ebf1c7488e34c";
 
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam load) throws Throwable {
         if ("com.miui.mediaeditor".equals(load.packageName)
                 && "com.miui.mediaeditor".equals(load.processName)) {
             try {
                 String source = (String) XposedHelpers.getObjectField(load.appInfo, "sourceDir");
-                if (EDITOR_SHA.equals(sha256(source))) {
+                String fingerprint = sha256(source);
+                if (EDITOR_SHA.equals(fingerprint)) {
                     EditorLeicaIdentity.install(load.classLoader);
                     PortraitCompatibility.installEditor(load.classLoader);
+                } else if (EDITOR_290_SHA.equals(fingerprint)) {
+                    EditorLeicaIdentity.install(load.classLoader);
+                    PortraitCompatibility.installEditor290(load.classLoader);
                 } else log("SKIPPED editor: APK fingerprint differs");
             } catch (Throwable failure) { log("EDITOR_HOOK_ERROR: " + failure); }
             return;
@@ -31,7 +39,13 @@ public final class WatermarkFix implements IXposedHookLoadPackage {
                 || !"com.android.camera".equals(load.processName)) return;
         try {
             String source = (String) XposedHelpers.getObjectField(load.appInfo, "sourceDir");
-            if (!CAMERA_SHA.equals(sha256(source))) {
+            String fingerprint = sha256(source);
+            if (CAMERA_290_SHA.equals(fingerprint)) {
+                Camera290.installWhenReady(load.classLoader);
+                log("READY 1.2.5: camera 6.7 native controls and display identity scheduled");
+                return;
+            }
+            if (!CAMERA_SHA.equals(fingerprint)) {
                 log("SKIPPED: camera APK fingerprint differs");
                 return;
             }
